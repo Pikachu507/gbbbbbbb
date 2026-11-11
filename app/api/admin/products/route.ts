@@ -1,0 +1,19 @@
+import {NextResponse} from 'next/server';import {isAdmin,adminDb,currentUser} from '@/lib/supabase-server';import {slug} from '@/lib/format';import {z} from 'zod';
+export const runtime='nodejs';
+const productSchema=z.object({id:z.uuid().optional(),name:z.string().trim().min(3).max(180),slug:z.string().max(200).optional(),team:z.string().min(2).max(120),league:z.string().min(2).max(80),category:z.string().min(2).max(80),season:z.string().min(2).max(40),kind:z.string().min(2).max(60),description:z.string().max(2000).nullable().optional(),price_cents:z.number().int().positive().nullable(),sale_price_cents:z.number().int().positive().nullable(),status:z.enum(['draft','published']),verified:z.boolean(),featured:z.boolean(),image_urls:z.array(z.url().max(1000)).max(8),variants:z.array(z.object({size:z.string().min(1).max(10),stock:z.number().int().min(0).max(5000)})).max(30)});
+async function guard(){if(!(await isAdmin()))return null;return adminDb()}
+export async function GET(){const db=await guard();if(!db)return NextResponse.json({error:'Sem permissão'},{status:403});const {data,error}=await db.from('products').select('*,variants:product_variants(*)').order('created_at',{ascending:false}).limit(600);if(error)return NextResponse.json({error:error.message},{status:500});return NextResponse.json({products:data})}
+export async function POST(req:Request){const db=await guard();if(!db)return NextResponse.json({error:'Sem permissão'},{status:403});
+ let p:z.infer<typeof productSchema>;try{p=productSchema.parse(await req.json())}catch{return NextResponse.json({error:'Dados inválidos. Revê preços, imagens, modelos e stock.'},{status:400})}
+ if(p.status==='published'&&(!p.verified||!p.price_cents||!p.image_urls.length||!p.variants.length))return NextResponse.json({error:'Para publicar é obrigatório confirmar o artigo, adicionar fotografia, preço e tamanhos.'},{status:400});
+ if(p.sale_price_cents&&p.price_cents&&p.sale_price_cents>=p.price_cents)return NextResponse.json({error:'Preço de promoção deve ser inferior ao preço normal.'},{status:400});
+ const {variants,id,...fields}=p;
+ const productPayload={...fields,slug:slug(p.slug||p.name)};
+ const {data,error}=id?await db.from('products').update(productPayload).eq('id',id).select().single():await db.from('products').insert(productPayload).select().single();
+ if(error||!data)return NextResponse.json({error:error?.message||'Erro'},{status:500});
+ // Upsert by (product_id,size) and zero any sizes removed; do not delete rows referenced by orders.
+ const {data:existing}=await db.from('product_variants').select('id,size').eq('product_id',data.id);
+ for(const old of existing||[]){if(!variants.some(v=>v.size===old.size))await db.from('product_variants').update({stock:0}).eq('id',old.id)}
+ if(variants.length){const rows=variants.map(v=>({product_id:data.id,size:v.size,stock:v.stock,sku:`GD-${data.id.slice(0,8)}-${slug(v.size).toUpperCase()}`}));const {error:err}=await db.from('product_variants').upsert(rows,{onConflict:'product_id,size'});if(err)return NextResponse.json({error:err.message},{status:500})}
+ const user=await currentUser();await db.from('admin_audit').insert({admin_id:user?.id,action:id?'update_product':'create_product',entity_id:data.id});return NextResponse.json({ok:true,id:data.id});}
+export async function DELETE(req:Request){const db=await guard();if(!db)return NextResponse.json({error:'Sem permissão'},{status:403});const id=new URL(req.url).searchParams.get('id');if(!id||!z.uuid().safeParse(id).success)return NextResponse.json({error:'ID inválido'},{status:400});const {error}=await db.from('products').update({status:'draft'}).eq('id',id);if(error)return NextResponse.json({error:error.message},{status:500});const user=await currentUser();await db.from('admin_audit').insert({admin_id:user?.id,action:'archive_product',entity_id:id});return NextResponse.json({ok:true})}

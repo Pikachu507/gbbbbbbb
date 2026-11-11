@@ -1,0 +1,4 @@
+import type {Metadata} from 'next';import './globals.css';import {Header} from '@/components/header';import {Footer} from '@/components/footer';import {CartDrawer} from '@/components/cart-drawer';import {ShopProvider} from '@/components/shop-provider';import {getSiteSettings} from '@/lib/data';
+export const dynamic='force-dynamic';
+export const metadata:Metadata={title:{default:'Goal District | Camisolas de Futebol',template:'%s | Goal District'},description:'Loja Goal District. Explora camisolas de clubes, seleções, retro, casacos e roupa de treino.',icons:{icon:'/favicon.svg'}};
+export default async function RootLayout({children}:{children:React.ReactNode}){const settings=await getSiteSettings();return <html lang="pt-PT"><body><ShopProvider><Header promo={typeof settings.promo_text==='string'?settings.promo_text:'LEVA 5 PAGA 4'}/><main style={{minHeight:'65vh'}}>{children}</main><Footer/><CartDrawer/></ShopProvider></body></html>}

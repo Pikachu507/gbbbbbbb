@@ -1,0 +1,1 @@
+export default function Loading(){return <div className="container section"><div style={{height:38,width:'30%',background:'#eee',borderRadius:8,marginBottom:28}}/><div className="product-grid">{Array.from({length:10},(_,i)=><div key={i} style={{height:340,background:'#f3f3f3',borderRadius:12}}/>)}</div></div>}

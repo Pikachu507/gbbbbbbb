@@ -1,0 +1,3 @@
+import {Suspense} from 'react';import {getProducts,getSalesCounts} from '@/lib/data';import {Catalog} from '@/components/catalog';
+export const metadata={title:'Coleção de futebol'};
+export default async function Store(){const [products,sales]=await Promise.all([getProducts({limit:400}),getSalesCounts()]);return <div className="container section"><div className="eyebrow" style={{color:'#ab8729'}}>A COLEÇÃO GOAL DISTRICT</div><h1 className="title" style={{margin:'12px 0'}}>Todas as camisolas</h1><p className="muted">Clubes, seleções, edições retro, criança e roupa de treino.</p><Suspense fallback={<p>A carregar filtros…</p>}><Catalog products={products} sales={sales}/></Suspense></div>}

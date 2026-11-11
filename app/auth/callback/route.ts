@@ -1,0 +1,2 @@
+import {NextResponse} from 'next/server';import {serverDb} from '@/lib/supabase-server';
+export async function GET(req:Request){const url=new URL(req.url),code=url.searchParams.get('code');const db=await serverDb();if(code&&db){const {error}=await db.auth.exchangeCodeForSession(code);if(!error)return NextResponse.redirect(new URL('/conta',url.origin))}return NextResponse.redirect(new URL('/entrar?error=confirmation',url.origin))}

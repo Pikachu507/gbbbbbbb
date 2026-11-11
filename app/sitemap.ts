@@ -1,0 +1,2 @@
+import type {MetadataRoute} from 'next';import {getProducts} from '@/lib/data';
+export default async function sitemap():Promise<MetadataRoute.Sitemap>{const base=process.env.NEXT_PUBLIC_SITE_URL||'http://localhost:3000',ps=await getProducts({limit:1000});return [{url:base,lastModified:new Date()},{url:base+'/loja',lastModified:new Date()},...ps.filter(p=>p.status==='published'&&p.verified).map(p=>({url:`${base}/produto/${p.slug}`,lastModified:new Date(p.created_at||Date.now())}))]}
